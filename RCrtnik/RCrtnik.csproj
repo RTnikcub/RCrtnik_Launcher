@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>R.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="GGS\R.ico" />
+    <None Remove="GGS\RC.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="R.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="GGS\R.ico" />
+    <Resource Include="GGS\RC.png" />
+  </ItemGroup>
+
+</Project>
