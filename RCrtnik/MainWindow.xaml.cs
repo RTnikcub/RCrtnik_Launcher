@@ -118,7 +118,8 @@ namespace RCrtnik
             catch (Exception ex)
             {
                 Status = LauncherStatus.failed;
-                MessageBox.Show($"Error installing game files: {ex}");
+                MessageBox.Show($"Error installing game files:\n {ex}");
+                //
             }
         }
 
@@ -148,7 +149,7 @@ namespace RCrtnik
             CheckForUpdate();
         }
 
-        private void PlayButton_Click(object sender, RoutedEventArgs e)
+        private void PlayButton_Click(object sender, RoutedEventArgs e)//Открытие списка ошибок
         {
             if (File.Exists(gameExe) && Status == LauncherStatus.ready)
             {
@@ -165,6 +166,24 @@ namespace RCrtnik
                 CheckForUpdate();
             }
         }
+        private void Button_02_Click(object sender, RoutedEventArgs e)//Кнопка 02
+        {
+            string url = "https://www.zabbix.com/download_sources";
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Status = LauncherStatus.failed;
+            }
+        }
+
     }
 
 
@@ -189,7 +208,7 @@ namespace RCrtnik
         }
         internal Version(string _version)
         {
-            string[] _versionStrings = _version.Split('.');
+            string[] _versionStrings = _version.Split('.');//Разделяет 10.29.3 на 10 29 3
             if (_versionStrings.Length != 3)
             {
                 major = 0;
