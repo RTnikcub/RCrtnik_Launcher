@@ -73,7 +73,7 @@ namespace RCrtnik
                 try
                 {
                     WebClient webClient = new WebClient();
-                    Version onlineVersion = new Version(webClient.DownloadString("http://rcrtnik.ru/Version.txt"));//в двух местах сылка номера версий
+                    Version onlineVersion = new Version(webClient.DownloadString("Addres"));//в двух местах сылка номера версий
 
                     if (onlineVersion.IsDifferentThan(localVersion))
                     {
@@ -108,9 +108,8 @@ namespace RCrtnik
                 else
                 {
                     Status = LauncherStatus.downlodingDame;
-                    _onlineVersion = new Version(webClient.DownloadString("http://rcrtnik.ru/Version.txt"));//в двух местах сылка номера версий
-                    //_onlineVersion.DownloadFileAsync(new Uri(""), "game.zip");//DownloadFileAsync
-                    //_onlineVersion = new Version.DownloadFileAsync()
+                    _onlineVersion = new Version(webClient.DownloadString("Addres"));//в двух местах сылка номера версий
+                    
                 }
 
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
@@ -156,6 +155,8 @@ namespace RCrtnik
                 ProcessStartInfo startInfo = new ProcessStartInfo(gameExe);
                 startInfo.WorkingDirectory = Path.Combine(rootPath, "TR");
                 Process.Start(startInfo);
+                Environment.Exit(0);
+                
 
                 Close();
             }
