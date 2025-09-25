@@ -33,10 +33,8 @@ namespace RCrtnik
 
         //>>>>
         private int x = 0;
-        private string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
-        private DispatcherTimer randomTimer;
-        private Random random;
-        private bool isRandomizerRunning = false;
+
+        
 
         internal LauncherStatus Status
         {
@@ -283,6 +281,24 @@ namespace RCrtnik
         {
             return $"{major}.{minor}.{subMinor}"; //Выдает версию
         }
-    }
+        
+        private void InitializeRandomizer()
+        {
+             DispatcherTimer randomTimer;
+             Random random;
+             bool isRandomizerRunning = false;
 
+            random = new Random();
+            randomTimer = new DispatcherTimer();
+            randomTimer.Interval = TimeSpan.FromMilliseconds(500); // 2 раза в секунду
+            GenerateRandomString();
+        }
+        
+        private void GenerateRandomString()
+        {
+            string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        }
+
+    }
+    
 }
