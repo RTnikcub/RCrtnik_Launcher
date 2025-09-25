@@ -168,7 +168,7 @@ namespace RCrtnik
         }
         private void Button_02_Click(object sender, RoutedEventArgs e)//Кнопка 02
         {
-            string url = "https://www.zabbix.com/download_sources";
+            string url = "https://rtnikcub.github.io/RC.io/";
 
             try
             {
@@ -252,3 +252,7 @@ namespace RCrtnik
     }
 
 }
+
+
+
+//coments RC.png izmeneno
