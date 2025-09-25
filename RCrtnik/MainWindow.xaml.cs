@@ -252,7 +252,3 @@ namespace RCrtnik
     }
 
 }
-
-
-
-//coments RC.png izmeneno
