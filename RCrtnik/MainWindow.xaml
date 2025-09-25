@@ -13,5 +13,6 @@
         <TextBlock Name="VersionText" VerticalAlignment="Bottom" HorizontalAlignment="Right" FontSize="20" Foreground="White" Margin="0,0,5,70"/>
         <Button Name="PlayButton" Content="Checking For Updates" Click="PlayButton_Click" FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,20" Background="#FF069207" Padding="10,1,10,1" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="45" VerticalAlignment="Bottom" MinWidth="1"/>
         <Button Name="Button_02" Content="Help" Click="Button_02_Click" FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,70" Background="#FF922306" Padding="10,1,10,1" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="45" VerticalAlignment="Bottom" MinWidth="1"/>
+        <Button Name="Button_03" Content="" Click="Button_03_Click" FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,377,70" Background="#FF922306" Padding="10,1,10,1" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="45" VerticalAlignment="Bottom" MinWidth="1"/>
     </Grid>
 </Window>
