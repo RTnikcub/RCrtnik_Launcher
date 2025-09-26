@@ -198,10 +198,12 @@ namespace RCrtnik
                 if (x == 0)
                 {
                     Button_03.Content = "+";
+                    Random10.Text ="+";
                     x += 1;
                 }
                 else {
                     Button_03.Content = "-";
+                    Random10.Text = "-";
                     x = 0;
 
                 }
@@ -299,6 +301,23 @@ namespace RCrtnik
             string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         }
 
+
+        private void OpenWindowButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Создаем и открываем новое окно
+                SecondWindow secondWindow = new SecondWindow();
+                secondWindow.Show(); // Неблокирующее открытие
+
+                // Или используйте ShowDialog() для модального окна:
+                // secondWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка открытия окна: {ex.Message}");
+            }
+        }
     }
     
 }
