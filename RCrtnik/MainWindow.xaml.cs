@@ -301,7 +301,7 @@ namespace RCrtnik
             string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         }
 
-
+        /*
         private void OpenWindowButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -318,6 +318,7 @@ namespace RCrtnik
                 MessageBox.Show($"Ошибка открытия окна: {ex.Message}");
             }
         }
+        */
     }
     
 }
