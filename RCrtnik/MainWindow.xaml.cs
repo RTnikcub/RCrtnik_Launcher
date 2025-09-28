@@ -153,6 +153,8 @@ namespace RCrtnik
             CheckForUpdate();
         }
 
+
+        //>>>>>> Кнопки
         private void PlayButton_Click(object sender, RoutedEventArgs e)//Открытие списка ошибок
         {
             if (File.Exists(gameExe) && Status == LauncherStatus.ready)
@@ -193,6 +195,12 @@ namespace RCrtnik
             {
                 Status = LauncherStatus.failed;
             }
+        }
+
+        private void Button_03_Click(object sender, RoutedEventArgs e)//Кнопка 03
+        {
+            CheckForUpdate();
+            Button_03.Content = "Проверено";
         }
 
     }
