@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Security.Policy;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace RCrtnik
 {
@@ -29,7 +30,13 @@ namespace RCrtnik
         private string gameExe;
         private string Exx;
 
+        //>>>>
+        private DispatcherTimer timer;
+
+        //>>>>
+
         private LauncherStatus _status;
+
         internal LauncherStatus Status
         {
             get => _status;
@@ -201,10 +208,29 @@ namespace RCrtnik
         {
             CheckForUpdate();
             Button_03.Content = "Проверено";
+            MessageBox.Show("Обновлений НЕТ");// Недоделано
+            StartTimer();
         }
 
+        //Таймер на пол секунды
+        private void StartTimer()
+        {
+            timer = new DispatcherTimer();
+            timer.Interval = TimeSpan.FromSeconds(0.5);// Время таймера
+            timer.Tick += Timer_Tick;
+            timer.Start();
+
+            Console.WriteLine($"Переменная до:");
+        }
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            timer.Stop();
+            Button_03.Content = "Проверить обновление";
+        }
     }
 
+
+    
 
 
 
@@ -271,8 +297,3 @@ namespace RCrtnik
     }
 
 }
-
-//+100
-/*
- no
- */
