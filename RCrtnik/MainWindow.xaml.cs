@@ -6,8 +6,6 @@ using System.IO.Compression;
 using System.Net;
 using System.Security.Policy;
 using System.Windows;
-using System.Threading;
-using System.Windows.Threading;
 
 namespace RCrtnik
 {
@@ -30,12 +28,6 @@ namespace RCrtnik
         private string gameExe;
 
         private LauncherStatus _status;
-
-        //>>>>
-        private int x = 0;
-
-        
-
         internal LauncherStatus Status
         {
             get => _status;
@@ -191,32 +183,6 @@ namespace RCrtnik
                 Status = LauncherStatus.failed;
             }
         }
-        private void Button_03_Click(object sender, RoutedEventArgs e)//Кнопка 03
-        {
-            try
-            {
-                if (x == 0)
-                {
-                    Button_03.Content = "+";
-                    Random10.Text ="+";
-                    x += 1;
-                }
-                else {
-                    Button_03.Content = "-";
-                    Random10.Text = "-";
-                    x = 0;
-
-                }
-
-                
-
-
-            }
-            catch (Exception ex)
-            {
-                Status = LauncherStatus.failed;
-            }
-        }
 
     }
 
@@ -283,28 +249,10 @@ namespace RCrtnik
         {
             return $"{major}.{minor}.{subMinor}"; //Выдает версию
         }
-        
-        private void InitializeRandomizer()
-        {
-             DispatcherTimer randomTimer;
-             Random random;
-             bool isRandomizerRunning = false;
-
-            random = new Random();
-            randomTimer = new DispatcherTimer();
-            randomTimer.Interval = TimeSpan.FromMilliseconds(500); // 2 раза в секунду
-            GenerateRandomString();
-        }
-        
-        private void GenerateRandomString()
-        {
-            string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        }
-
-        
     }
-    
+
 }
+
 //+100
 /*
  no
