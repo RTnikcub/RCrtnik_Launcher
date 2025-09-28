@@ -15,7 +15,8 @@ namespace RCrtnik
         ready,
         failed,
         downlodingDame,
-        downlodingUpdate
+        downlodingUpdate,
+        defalt
     }
 
 
@@ -26,6 +27,7 @@ namespace RCrtnik
         private string versionFile;
         private string gameZip;
         private string gameExe;
+        private string Exx;
 
         private LauncherStatus _status;
         internal LauncherStatus Status
@@ -41,12 +43,17 @@ namespace RCrtnik
                         break;
                     case LauncherStatus.failed:
                         PlayButton.Content = "Error";
+                        //MessageBox.Show($"Error installing game files:\n{Exx}");
                         break;
                     case LauncherStatus.downlodingDame:
                         PlayButton.Content = "Downd Update";
                         break;
                     case LauncherStatus.downlodingUpdate:
                         PlayButton.Content = "Downd Game";
+                        break;
+                        
+                    case LauncherStatus.defalt:
+                        PlayButton.Content = "PRO";
                         break;
                 }
             }
@@ -55,8 +62,7 @@ namespace RCrtnik
         public MainWindow()
         {
             InitializeComponent();
-
-
+            Status = LauncherStatus.defalt;
             rootPath = Directory.GetCurrentDirectory();
             versionFile = Path.Combine(rootPath, "Version.txt");
             gameZip = Path.Combine(rootPath, "Tukhtai-006.zip");
@@ -87,7 +93,7 @@ namespace RCrtnik
                 catch (Exception ex)
                 {
                     Status = LauncherStatus.failed;
-                    MessageBox.Show($"Error checking for game updates: {ex}");
+                    Exx = ex.ToString();
                 }
             }
             else
@@ -109,17 +115,15 @@ namespace RCrtnik
                 {
                     Status = LauncherStatus.downlodingDame;
                     _onlineVersion = new Version(webClient.DownloadString("Addres"));//в двух местах сылка номера версий
-                    
                 }
 
                 webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(DownloadGameCompletedCallback);
-                webClient.DownloadFileAsync(new Uri("https://onedrive.live.com/download?resid=2B1021F94D044543%21107&authkey=!AJIGhKzE3aau0LE"), gameZip, _onlineVersion);// Сылка на зип
+                webClient.DownloadFileAsync(new Uri("AddresZip"), gameZip, _onlineVersion);// Сылка на зип
             }
             catch (Exception ex)
             {
                 Status = LauncherStatus.failed;
-                MessageBox.Show($"Error installing game files:\n {ex}");
-                //
+                Exx = ex.ToString();
             }
         }
 
@@ -139,7 +143,7 @@ namespace RCrtnik
             catch (Exception ex)
             {
                 Status = LauncherStatus.failed;
-                MessageBox.Show($"Error finishing download: {ex}");
+                Exx = ex.ToString();
             }
         }
 
@@ -157,15 +161,22 @@ namespace RCrtnik
                 startInfo.WorkingDirectory = Path.Combine(rootPath, "TR");
                 Process.Start(startInfo);
                 Environment.Exit(0);
-                
-
                 Close();
             }
             else if (Status == LauncherStatus.failed)
             {
                 CheckForUpdate();
+                //>>>>>>>
+                MessageBox.Show($"Error installing game files:\n{Exx}");
+                //>>>>>>>
+            }
+            else if (Status == LauncherStatus.defalt)
+            {
+                
             }
         }
+
+            
         private void Button_02_Click(object sender, RoutedEventArgs e)//Кнопка 02
         {
             string url = "https://rtnikcub.github.io/RC.io/";
