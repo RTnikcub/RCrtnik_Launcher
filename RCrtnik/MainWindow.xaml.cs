@@ -301,24 +301,7 @@ namespace RCrtnik
             string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         }
 
-        /*
-        private void OpenWindowButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Создаем и открываем новое окно
-                SecondWindow secondWindow = new SecondWindow();
-                secondWindow.Show(); // Неблокирующее открытие
-
-                // Или используйте ShowDialog() для модального окна:
-                // secondWindow.ShowDialog();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка открытия окна: {ex.Message}");
-            }
-        }
-        */
+        
     }
     
 }
