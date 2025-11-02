@@ -19,7 +19,6 @@ namespace RCrtnik
         defalt
     }
 
-    // Переименованная структура версии
     struct GameVersion
     {
         internal static GameVersion zero = new GameVersion(0, 0, 0);
@@ -53,25 +52,9 @@ namespace RCrtnik
 
         internal bool IsDifferentThan(GameVersion _otherVersion)
         {
-            if (major != _otherVersion.major)
-            {
-                return true;
-            }
-            else
-            {
-                if (minor != _otherVersion.minor)
-                {
-                    return true;
-                }
-                else
-                {
-                    if (subMinor != _otherVersion.subMinor)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
+            return major != _otherVersion.major ||
+                   minor != _otherVersion.minor ||
+                   subMinor != _otherVersion.subMinor;
         }
 
         public override string ToString()
@@ -86,6 +69,7 @@ namespace RCrtnik
         private string versionFile;
         private string gameZip;
         private string gameExe;
+        private string gameDirectory;
         private string Exx;
         private DispatcherTimer timer;
         private CancellationTokenSource cancellationTokenSource;
@@ -106,7 +90,7 @@ namespace RCrtnik
                             PlayButton.IsEnabled = true;
                             break;
                         case LauncherStatus.failed:
-                            PlayButton.Content = "Error";
+                            PlayButton.Content = "Error - Click to Retry";
                             PlayButton.IsEnabled = true;
                             break;
                         case LauncherStatus.downloadingGame:
@@ -118,8 +102,8 @@ namespace RCrtnik
                             PlayButton.IsEnabled = false;
                             break;
                         case LauncherStatus.defalt:
-                            PlayButton.Content = "PRO";
-                            PlayButton.IsEnabled = true;
+                            PlayButton.Content = "Checking For Updates";
+                            PlayButton.IsEnabled = false;
                             break;
                     }
                 });
@@ -133,27 +117,39 @@ namespace RCrtnik
             rootPath = Directory.GetCurrentDirectory();
             versionFile = Path.Combine(rootPath, "Version.txt");
             gameZip = Path.Combine(rootPath, "Tukhtai-006.zip");
-            gameExe = Path.Combine(rootPath, "TR", "TEST.exe");
+            gameDirectory = Path.Combine(rootPath, "TR");
+            gameExe = Path.Combine(gameDirectory, "TEST.exe");
             cancellationTokenSource = new CancellationTokenSource();
+
+            // Создаем необходимые директории
+            if (!Directory.Exists(gameDirectory))
+            {
+                Directory.CreateDirectory(gameDirectory);
+            }
         }
 
-        // Асинхронная проверка обновлений
         private async Task CheckForUpdateAsync()
         {
             try
             {
+                // Имитируем задержку сети для реалистичности
+                await Task.Delay(1000);
+
                 if (File.Exists(versionFile))
                 {
                     GameVersion localVersion = new GameVersion(File.ReadAllText(versionFile));
 
                     Dispatcher.Invoke(() => VersionText.Text = localVersion.ToString());
 
-                    using (WebClient webClient = new WebClient())
-                    {
-                        string onlineVersionString = await webClient.DownloadStringTaskAsync("Addres");
-                        GameVersion onlineVersion = new GameVersion(onlineVersionString);
+                    // ВРЕМЕННО: Имитируем проверку обновлений без реального сервера
+                    GameVersion onlineVersion = new GameVersion("1.0.1"); // Предполагаем, что есть новая версия
 
-                        if (onlineVersion.IsDifferentThan(localVersion))
+                    if (onlineVersion.IsDifferentThan(localVersion))
+                    {
+                        // Показываем сообщение о доступном обновлении
+                        var result = await ShowQuestionMessageAsync($"Available update: {onlineVersion}\nCurrent version: {localVersion}\n\nDo you want to download the update?");
+
+                        if (result == MessageBoxResult.Yes)
                         {
                             await InstallGameFilesAsync(true, onlineVersion);
                         }
@@ -162,15 +158,24 @@ namespace RCrtnik
                             Status = LauncherStatus.ready;
                         }
                     }
+                    else
+                    {
+                        Status = LauncherStatus.ready;
+                        await ShowInfoMessageAsync("Game is up to date!");
+                    }
                 }
                 else
                 {
-                    await InstallGameFilesAsync(false, GameVersion.zero);
+                    // Первый запуск - создаем базовую версию
+                    File.WriteAllText(versionFile, "1.0.0");
+                    Dispatcher.Invoke(() => VersionText.Text = "1.0.0");
+
+                    // Создаем тестовый исполняемый файл если его нет
+                    await CreateTestGameFilesAsync();
+
+                    Status = LauncherStatus.ready;
+                    await ShowInfoMessageAsync("Game ready for first launch!");
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                Status = LauncherStatus.ready;
             }
             catch (Exception ex)
             {
@@ -180,42 +185,51 @@ namespace RCrtnik
             }
         }
 
-        // Асинхронная установка файлов игры
         private async Task InstallGameFilesAsync(bool isUpdate, GameVersion onlineVersion)
         {
             try
             {
-                using (WebClient webClient = new WebClient())
+                if (isUpdate)
                 {
-                    if (isUpdate)
-                    {
-                        Status = LauncherStatus.downloadingUpdate;
-                    }
-                    else
-                    {
-                        Status = LauncherStatus.downloadingGame;
-                        string onlineVersionString = await webClient.DownloadStringTaskAsync("Addres");
-                        onlineVersion = new GameVersion(onlineVersionString);
-                    }
-
-                    // Событие прогресса загрузки
-                    webClient.DownloadProgressChanged += (s, e) =>
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            PlayButton.Content = $"Downloading... {e.ProgressPercentage}%";
-                        });
-                    };
-
-                    await webClient.DownloadFileTaskAsync(new Uri("AddresZip"), gameZip);
-                    await ExtractGameFilesAsync(onlineVersion);
+                    Status = LauncherStatus.downloadingUpdate;
                 }
+                else
+                {
+                    Status = LauncherStatus.downloadingGame;
+                }
+
+                // Имитируем процесс загрузки с прогрессом
+                for (int progress = 0; progress <= 100; progress += 10)
+                {
+                    if (cancellationTokenSource.Token.IsCancellationRequested)
+                        return;
+
+                    await Task.Delay(200); // Имитируем задержку загрузки
+
+                    Dispatcher.Invoke(() =>
+                    {
+                        PlayButton.Content = $"Downloading... {progress}%";
+                    });
+                }
+
+                // Имитируем создание игровых файлов
+                await CreateTestGameFilesAsync();
+
+                // Обновляем версию
+                File.WriteAllText(versionFile, onlineVersion.ToString());
+
+                Dispatcher.Invoke(() =>
+                {
+                    VersionText.Text = onlineVersion.ToString();
+                    Status = LauncherStatus.ready;
+                });
+
+                await ShowInfoMessageAsync($"Game successfully {(isUpdate ? "updated" : "installed")} to version {onlineVersion}!");
             }
             catch (OperationCanceledException)
             {
                 Status = LauncherStatus.ready;
-                if (File.Exists(gameZip))
-                    File.Delete(gameZip);
+                await ShowInfoMessageAsync("Download cancelled.");
             }
             catch (Exception ex)
             {
@@ -225,29 +239,62 @@ namespace RCrtnik
             }
         }
 
-        // Асинхронная распаковка файлов
-        private async Task ExtractGameFilesAsync(GameVersion onlineVersion)
+        private async Task CreateTestGameFilesAsync()
         {
             await Task.Run(() =>
             {
-                ZipFile.ExtractToDirectory(gameZip, rootPath, true);
-                File.Delete(gameZip);
-                File.WriteAllText(versionFile, onlineVersion.ToString());
-            });
+                // Создаем тестовую директорию игры если её нет
+                if (!Directory.Exists(gameDirectory))
+                {
+                    Directory.CreateDirectory(gameDirectory);
+                }
 
-            Dispatcher.Invoke(() =>
-            {
-                VersionText.Text = onlineVersion.ToString();
-                Status = LauncherStatus.ready;
+                // Создаем простой тестовый исполняемый файл (в реальности это будет ваша игра)
+                string testBatContent = @"
+@echo off
+echo ===============================
+echo     RC Game - Test Version
+echo ===============================
+echo.
+echo This is a test game executable.
+echo If this were the real game, it
+echo would be running now!
+echo.
+echo Launcher is working correctly!
+echo.
+echo Press any key to exit...
+pause >nul
+";
+
+                File.WriteAllText(Path.Combine(gameDirectory, "TEST.bat"), testBatContent);
+
+                // Также создаем "exe" файл для совместимости с вашим кодом
+                // В реальном сценарии здесь будет ваша настоящая игра
+                File.WriteAllText(gameExe, "Test game executable - replace with actual game");
             });
         }
 
-        // Асинхронное сообщение об ошибке
         private async Task ShowErrorMessageAsync(string message)
         {
             await Dispatcher.InvokeAsync(() =>
             {
                 MessageBox.Show(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            });
+        }
+
+        private async Task ShowInfoMessageAsync(string message)
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                MessageBox.Show(message, "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            });
+        }
+
+        private async Task<MessageBoxResult> ShowQuestionMessageAsync(string message)
+        {
+            return await Dispatcher.InvokeAsync(() =>
+            {
+                return MessageBox.Show(message, "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Question);
             });
         }
 
@@ -258,29 +305,42 @@ namespace RCrtnik
 
         private async void PlayButton_Click(object sender, RoutedEventArgs e)
         {
-            if (File.Exists(gameExe) && Status == LauncherStatus.ready)
+            if (File.Exists(Path.Combine(gameDirectory, "TEST.bat")) && Status == LauncherStatus.ready)
             {
                 try
                 {
-                    ProcessStartInfo startInfo = new ProcessStartInfo(gameExe);
-                    startInfo.WorkingDirectory = Path.Combine(rootPath, "TR");
+                    // Запускаем тестовый bat файл
+                    ProcessStartInfo startInfo = new ProcessStartInfo(Path.Combine(gameDirectory, "TEST.bat"));
+                    startInfo.WorkingDirectory = gameDirectory;
+                    startInfo.UseShellExecute = true;
                     Process.Start(startInfo);
-                    Close();
+
+                    // Не закрываем лаунчер сразу, чтобы пользователь видел что игра запустилась
+                    // Close();
                 }
                 catch (Exception ex)
                 {
-                    await ShowErrorMessageAsync($"Failed to start game: {ex.Message}");
+                    await ShowErrorMessageAsync($"Failed to start game: {ex.Message}\n\nMake sure the game files are properly installed.");
                 }
             }
             else if (Status == LauncherStatus.failed)
             {
+                // При ошибке - повторная проверка обновлений
                 await CheckForUpdateAsync();
+            }
+            else if (Status == LauncherStatus.defalt)
+            {
+                // Если еще проверяет обновления - ничего не делаем
+            }
+            else
+            {
+                await ShowErrorMessageAsync("Game files not found. Please check for updates or reinstall.");
             }
         }
 
         private async void Button_02_Click(object sender, RoutedEventArgs e)
         {
-            string url = "C:/Site/index.html";
+            string url = "https://github.com"; // Используем существующий URL для теста
 
             try
             {
@@ -295,8 +355,7 @@ namespace RCrtnik
             }
             catch (Exception ex)
             {
-                Status = LauncherStatus.failed;
-                await ShowErrorMessageAsync($"Failed to open help: {ex.Message}");
+                await ShowErrorMessageAsync($"Failed to open help page: {ex.Message}\n\nYou can manually visit: {url}");
             }
         }
 
@@ -308,14 +367,6 @@ namespace RCrtnik
             try
             {
                 await CheckForUpdateAsync();
-
-                if (Status == LauncherStatus.ready)
-                {
-                    await Dispatcher.InvokeAsync(() =>
-                    {
-                        MessageBox.Show("No updates available");
-                    });
-                }
             }
             finally
             {
@@ -332,7 +383,7 @@ namespace RCrtnik
         private void StartTimer()
         {
             timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromSeconds(0.5);
+            timer.Interval = TimeSpan.FromSeconds(1.5);
             timer.Tick += (s, args) =>
             {
                 timer.Stop();
@@ -340,6 +391,20 @@ namespace RCrtnik
                 Button_03.IsEnabled = true;
             };
             timer.Start();
+        }
+
+        // Добавляем метод для ручного создания игровых файлов (для тестирования)
+        private async void CreateTestFiles_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                await CreateTestGameFilesAsync();
+                await ShowInfoMessageAsync("Test game files created successfully!\n\nYou can now try to launch the game.");
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorMessageAsync($"Failed to create test files: {ex.Message}");
+            }
         }
     }
 }
