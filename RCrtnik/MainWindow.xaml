@@ -14,5 +14,7 @@
         <Button Name="PlayButton" Content="Checking For Updates" Click="PlayButton_Click" FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,10" Background="#FF069207" Padding="10,1,10,5" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="55" VerticalAlignment="Bottom" MinWidth="1"/>
         <Button Name="Button_02" Content="Help" Click="Button_02_Click" FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,70" Background="#FF922306" Padding="10,1,10,5" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="45" VerticalAlignment="Bottom" MinWidth="1"/>
         <Button Name="Button_03" Content="Проверить обновление" Click="Button_03_Click" FontSize="20" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,120" Background="#FF922306" Padding="10,1,10,5" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="45" VerticalAlignment="Bottom" MinWidth="1"/>
+        <ProgressBar Name="DownloadProgress" VerticalAlignment="Bottom" 
+             Height="10" Margin="20,0,362,30" Minimum="0" Maximum="100"/>
     </Grid>
-</Window>
+</Window>   

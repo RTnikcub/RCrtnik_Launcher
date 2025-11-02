@@ -15,11 +15,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="R.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Resource Include="GGS\R.ico" />
+    <Resource Include="R.ico" />
     <Resource Include="GGS\RC.png" />
   </ItemGroup>
 
