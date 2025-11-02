@@ -12,6 +12,10 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Net.NetworkInformation;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace RCrtnik
 {
@@ -75,17 +79,32 @@ namespace RCrtnik
         private string gameZip;
         private string gameExe;
         private string gameDirectory;
+        private string nicknamesFile;
         private string Exx;
         private DispatcherTimer timer;
         private DispatcherTimer imageSlideTimer;
+        private DispatcherTimer nickScrollTimer;
+        private DispatcherTimer statsTimer;
         private CancellationTokenSource cancellationTokenSource;
 
         // Галерея изображений
-        private List<BitmapImage> galleryImages;
+        private List<string> galleryImagePaths;
         private int currentImageIndex = 0;
         private Image currentImage;
         private Image nextImage;
         private Border galleryBorder;
+
+        // Бегущая строка ников
+        private ObservableCollection<string> nicknames;
+        private ListView nickListView;
+        private Border nickBorder;
+        private int currentNickIndex = 0;
+
+        // Левая рамка со статистикой
+        private Border leftBorder;
+        private TextBlock internetStatusText;
+        private TextBlock pcIdText;
+        private TextBlock cpuUsageText;
 
         private LauncherStatus _status;
         internal LauncherStatus Status
@@ -126,13 +145,13 @@ namespace RCrtnik
         public MainWindow()
         {
             InitializeComponent();
-            InitializeImageGallery();
-            Status = LauncherStatus.defalt;
+
             rootPath = Directory.GetCurrentDirectory();
             versionFile = Path.Combine(rootPath, "Version.txt");
             gameZip = Path.Combine(rootPath, "Tukhtai-006.zip");
             gameDirectory = Path.Combine(rootPath, "TR");
             gameExe = Path.Combine(gameDirectory, "TEST.exe");
+            nicknamesFile = Path.Combine(rootPath, "nicknames.txt");
             cancellationTokenSource = new CancellationTokenSource();
 
             // Создаем необходимые директории
@@ -140,322 +159,767 @@ namespace RCrtnik
             {
                 Directory.CreateDirectory(gameDirectory);
             }
+
+            // Инициализируем все элементы
+            CreateLeftBorder();
+            InitializeNicknames();
+            InitializeImageGallery();
+            StartStatsTimer();
+            Status = LauncherStatus.defalt;
+        }
+
+        private void CreateLeftBorder()
+        {
+            try
+            {
+                // Создаем левую рамку во всю высоту
+                leftBorder = new Border();
+                leftBorder.Width = 250;
+                leftBorder.HorizontalAlignment = HorizontalAlignment.Left;
+                leftBorder.VerticalAlignment = VerticalAlignment.Stretch;
+                leftBorder.Margin = new Thickness(0);
+                leftBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x88, 0x88, 0x88));
+                leftBorder.BorderThickness = new Thickness(2);
+                leftBorder.CornerRadius = new CornerRadius(0);
+                leftBorder.Background = new SolidColorBrush(Color.FromArgb(0xAA, 0x0A, 0x0A, 0x0A));
+
+                // Создаем контейнер для статистики
+                var statsPanel = new StackPanel();
+                statsPanel.Margin = new Thickness(15);
+                statsPanel.Orientation = Orientation.Vertical;
+                statsPanel.VerticalAlignment = VerticalAlignment.Top;
+
+                // Заголовок
+                var headerText = new TextBlock();
+                headerText.Text = "SYSTEM STATS";
+                headerText.Foreground = Brushes.White;
+                headerText.FontSize = 18;
+                headerText.FontWeight = FontWeights.Bold;
+                headerText.HorizontalAlignment = HorizontalAlignment.Center;
+                headerText.Margin = new Thickness(0, 10, 0, 20);
+                statsPanel.Children.Add(headerText);
+
+                // Статус интернета
+                var internetPanel = CreateStatPanel("Internet Status:", out internetStatusText);
+                statsPanel.Children.Add(internetPanel);
+
+                // ID ПК
+                var pcIdPanel = CreateStatPanel("PC Identifier:", out pcIdText);
+                statsPanel.Children.Add(pcIdPanel);
+
+                // Загрузка ЦП
+                var cpuPanel = CreateStatPanel("CPU Usage:", out cpuUsageText);
+                statsPanel.Children.Add(cpuPanel);
+
+                leftBorder.Child = statsPanel;
+
+                // Добавляем в главный Grid
+                var mainGrid = Content as Grid;
+                if (mainGrid != null)
+                {
+                    mainGrid.Children.Add(leftBorder);
+                    Panel.SetZIndex(leftBorder, 0);
+                }
+
+                Debug.WriteLine("Left border with stats created successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to create left border: {ex}");
+            }
+        }
+
+        private StackPanel CreateStatPanel(string label, out TextBlock valueText)
+        {
+            var panel = new StackPanel();
+            panel.Orientation = Orientation.Vertical;
+            panel.Margin = new Thickness(0, 0, 0, 15);
+
+            var labelText = new TextBlock();
+            labelText.Text = label;
+            labelText.Foreground = Brushes.LightGray;
+            labelText.FontSize = 12;
+            labelText.Margin = new Thickness(0, 0, 0, 5);
+            panel.Children.Add(labelText);
+
+            valueText = new TextBlock();
+            valueText.Foreground = Brushes.White;
+            valueText.FontSize = 14;
+            valueText.FontWeight = FontWeights.SemiBold;
+            panel.Children.Add(valueText);
+
+            return panel;
+        }
+
+        private void StartStatsTimer()
+        {
+            statsTimer = new DispatcherTimer();
+            statsTimer.Interval = TimeSpan.FromSeconds(2);
+            statsTimer.Tick += StatsTimer_Tick;
+            statsTimer.Start();
+        }
+
+        private void StatsTimer_Tick(object sender, EventArgs e)
+        {
+            UpdateStats();
+        }
+
+        private void UpdateStats()
+        {
+            try
+            {
+                // Обновляем статус интернета
+                UpdateInternetStatus();
+
+                // Обновляем ID ПК (только один раз)
+                if (string.IsNullOrEmpty(pcIdText.Text))
+                {
+                    UpdatePCIdentifier();
+                }
+
+                // Обновляем загрузку ЦП
+                UpdateCPUUsage();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Stats update failed: {ex}");
+            }
+        }
+
+        private void UpdateInternetStatus()
+        {
+            try
+            {
+                bool hasInternet = CheckInternetConnection();
+                Dispatcher.Invoke(() =>
+                {
+                    internetStatusText.Text = hasInternet ? "ONLINE" : "OFFLINE";
+                    internetStatusText.Foreground = hasInternet ? Brushes.LightGreen : Brushes.Red;
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Internet status check failed: {ex}");
+            }
+        }
+
+        private bool CheckInternetConnection()
+        {
+            try
+            {
+                using (var ping = new Ping())
+                {
+                    var reply = ping.Send("8.8.8.8", 3000); // Google DNS
+                    return reply.Status == IPStatus.Success;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void UpdatePCIdentifier()
+        {
+            try
+            {
+                string pcId = GetPCIdentifier();
+                Dispatcher.Invoke(() =>
+                {
+                    pcIdText.Text = pcId;
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"PC ID update failed: {ex}");
+                Dispatcher.Invoke(() =>
+                {
+                    pcIdText.Text = "Unknown";
+                });
+            }
+        }
+
+        private string GetPCIdentifier()
+        {
+            try
+            {
+                // Используем комбинацию имени машины и имени пользователя для создания уникального ID
+                string machineName = Environment.MachineName;
+                string userName = Environment.UserName;
+                string domainName = Environment.UserDomainName;
+
+                // Создаем хэш для уникальности
+                string combined = $"{machineName}_{userName}_{domainName}";
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(combined));
+                    return BitConverter.ToString(hash).Replace("-", "").Substring(0, 12).ToUpper();
+                }
+            }
+            catch
+            {
+                return "UnknownPC";
+            }
+        }
+
+        private void UpdateCPUUsage()
+        {
+            try
+            {
+                // Простая имитация загрузки ЦП для демонстрации
+                // В реальном приложении можно использовать PerformanceCounter
+                Random random = new Random();
+                float cpuUsage = random.Next(5, 40); // Имитируем загрузку 5-40%
+
+                Dispatcher.Invoke(() =>
+                {
+                    cpuUsageText.Text = $"{cpuUsage:0}%";
+                    // Меняем цвет в зависимости от загрузки
+                    if (cpuUsage < 30)
+                        cpuUsageText.Foreground = Brushes.LightGreen;
+                    else if (cpuUsage < 60)
+                        cpuUsageText.Foreground = Brushes.Orange;
+                    else
+                        cpuUsageText.Foreground = Brushes.Red;
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"CPU usage update failed: {ex}");
+                Dispatcher.Invoke(() =>
+                {
+                    cpuUsageText.Text = "N/A";
+                    cpuUsageText.Foreground = Brushes.Gray;
+                });
+            }
+        }
+
+        private void InitializeNicknames()
+        {
+            try
+            {
+                nicknames = new ObservableCollection<string>();
+
+                if (File.Exists(nicknamesFile))
+                {
+                    string[] lines = File.ReadAllLines(nicknamesFile);
+                    foreach (string line in lines)
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            nicknames.Add(line.Trim());
+                        }
+                    }
+                    Debug.WriteLine($"Loaded {nicknames.Count} nicknames from file");
+                }
+                else
+                {
+                    CreateNicknamesFile();
+                    string[] lines = File.ReadAllLines(nicknamesFile);
+                    foreach (string line in lines)
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            nicknames.Add(line.Trim());
+                        }
+                    }
+                    Debug.WriteLine($"Created and loaded {nicknames.Count} nicknames");
+                }
+
+                CreateNickList();
+                StartNickScroll();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Nicknames initialization failed: {ex}");
+            }
+        }
+
+        private void CreateNicknamesFile()
+        {
+            try
+            {
+                List<string> nickList = new List<string>();
+
+                string[] prefixes = {
+                    "Shadow", "Dark", "Light", "Cyber", "Neo", "Alpha", "Beta", "Omega", "Ultra", "Mega",
+                    "Super", "Hyper", "Ghost", "Phantom", "Stealth", "Silent", "Rapid", "Swift", "Blaze", "Ice",
+                    "Fire", "Thunder", "Storm", "Wind", "Earth", "Water", "Metal", "Steel", "Iron", "Gold",
+                    "Silver", "Bronze", "Crystal", "Diamond", "Ruby", "Sapphire", "Emerald", "Amber", "Onyx", "Jade",
+                    "Dragon", "Phoenix", "Wolf", "Tiger", "Lion", "Eagle", "Hawk", "Falcon", "Raven", "Crow",
+                    "Warrior", "Knight", "Mage", "Wizard", "Hunter", "Ranger", "Assassin", "Ninja", "Samurai", "Viking",
+                    "Pirate", "Captain", "Commander", "General", "Agent", "Spy", "Master", "Lord", "King", "Queen",
+                    "Prince", "Princess", "Duke", "Baron", "Chief", "Leader", "Hero", "Legend", "Myth", "Epic",
+                    "Ancient", "Eternal", "Infinite", "Cosmic", "Galactic", "Solar", "Lunar", "Stellar", "Nova", "Quantum"
+                };
+
+                string[] suffixes = {
+                    "X", "Z", "Pro", "Master", "Expert", "Elite", "Ace", "Lord", "King", "Queen",
+                    "Warrior", "Hunter", "Slayer", "Killer", "Destroyer", "Annihilator", "Dominator", "Conqueror", "Champion", "Victor",
+                    "Blade", "Arrow", "Bow", "Sword", "Axe", "Hammer", "Shield", "Armor", "Helmet", "Gauntlet",
+                    "Rider", "Walker", "Runner", "Jumper", "Flyer", "Swimmer", "Diver", "Climber", "Crawler", "Glider",
+                    "Storm", "Blaze", "Frost", "Thunder", "Lightning", "Earth", "Wind", "Water", "Fire", "Ice",
+                    "Shadow", "Light", "Dark", "Night", "Day", "Dawn", "Dusk", "Twilight", "Midnight", "Noon",
+                    "Alpha", "Beta", "Gamma", "Delta", "Sigma", "Omega", "Theta", "Lambda", "Psi", "Phi",
+                    "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+                    "Prime", "Ultimate", "Final", "Last", "First", "New", "Old", "Young", "Ancient", "Modern",
+                    "Red", "Blue", "Green", "Yellow", "Black", "White", "Gray", "Purple", "Orange", "Pink"
+                };
+
+                Random random = new Random();
+                HashSet<string> usedNicks = new HashSet<string>();
+
+                while (nickList.Count < 200)
+                {
+                    string prefix = prefixes[random.Next(prefixes.Length)];
+                    string suffix = suffixes[random.Next(suffixes.Length)];
+                    string nick = $"{prefix}{suffix}";
+
+                    if (usedNicks.Contains(nick))
+                    {
+                        nick = $"{prefix}{suffix}{random.Next(1000)}";
+                    }
+
+                    if (!usedNicks.Contains(nick))
+                    {
+                        usedNicks.Add(nick);
+                        nickList.Add(nick);
+                    }
+                }
+
+                File.WriteAllLines(nicknamesFile, nickList);
+                Debug.WriteLine($"Created nicknames file with {nickList.Count} nicks");
+
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to create nicknames file: {ex}");
+            }
+        }
+
+        private void CreateNickList()
+        {
+            try
+            {
+                nickListView = new ListView();
+                nickListView.Width = 260;
+                nickListView.Height = 120;
+                nickListView.Background = Brushes.Transparent;
+                nickListView.BorderThickness = new Thickness(0);
+                nickListView.Foreground = new SolidColorBrush(Color.FromRgb(255, 215, 0));
+                nickListView.FontSize = 12;
+                nickListView.FontWeight = FontWeights.SemiBold;
+
+                ScrollViewer.SetVerticalScrollBarVisibility(nickListView, ScrollBarVisibility.Hidden);
+                ScrollViewer.SetHorizontalScrollBarVisibility(nickListView, ScrollBarVisibility.Hidden);
+
+                Style listViewItemStyle = new Style(typeof(ListViewItem));
+                listViewItemStyle.Setters.Add(new Setter(ListViewItem.BackgroundProperty, Brushes.Transparent));
+                listViewItemStyle.Setters.Add(new Setter(ListViewItem.BorderThicknessProperty, new Thickness(0)));
+                listViewItemStyle.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(12, 4, 12, 4)));
+                listViewItemStyle.Setters.Add(new Setter(ListViewItem.MarginProperty, new Thickness(0)));
+                listViewItemStyle.Setters.Add(new Setter(ListViewItem.FocusVisualStyleProperty, null));
+                listViewItemStyle.Setters.Add(new Setter(HorizontalContentAlignmentProperty, HorizontalAlignment.Left));
+                listViewItemStyle.Setters.Add(new Setter(VerticalContentAlignmentProperty, VerticalAlignment.Center));
+
+                nickListView.ItemContainerStyle = listViewItemStyle;
+                nickListView.ItemsSource = nicknames;
+
+                nickBorder = new Border();
+                nickBorder.Width = 280;
+                nickBorder.Height = 140;
+                nickBorder.Margin = new Thickness(0, 230, 15, 0);
+                nickBorder.HorizontalAlignment = HorizontalAlignment.Right;
+                nickBorder.VerticalAlignment = VerticalAlignment.Top;
+                nickBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x88, 0x88, 0x88));
+                nickBorder.BorderThickness = new Thickness(2);
+                nickBorder.CornerRadius = new CornerRadius(0);
+                nickBorder.Background = new SolidColorBrush(Color.FromArgb(0xDD, 0x0A, 0x0A, 0x0A));
+
+                var mainContainer = new StackPanel();
+                mainContainer.Background = Brushes.Transparent;
+                mainContainer.Children.Add(nickListView);
+                nickBorder.Child = mainContainer;
+
+                try
+                {
+                    nickBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect()
+                    {
+                        Color = Colors.Black,
+                        Direction = 320,
+                        ShadowDepth = 5,
+                        Opacity = 0.8,
+                        BlurRadius = 10
+                    };
+                }
+                catch { }
+
+                var mainGrid = Content as Grid;
+                if (mainGrid != null)
+                {
+                    mainGrid.Children.Add(nickBorder);
+                    Panel.SetZIndex(nickBorder, 1);
+                }
+
+                Debug.WriteLine("Nick list created successfully");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to create nick list: {ex}");
+            }
+        }
+
+        private void StartNickScroll()
+        {
+            nickScrollTimer = new DispatcherTimer();
+            nickScrollTimer.Interval = TimeSpan.FromMilliseconds(1500);
+            nickScrollTimer.Tick += NickScrollTimer_Tick;
+            nickScrollTimer.Start();
+        }
+
+        private void NickScrollTimer_Tick(object sender, EventArgs e)
+        {
+            ScrollNicknames();
+        }
+
+        private void ScrollNicknames()
+        {
+            if (nicknames == null || nicknames.Count == 0) return;
+
+            try
+            {
+                // Простая анимация движения вверх без моргания
+                DoubleAnimation scrollAnimation = new DoubleAnimation();
+                scrollAnimation.From = 30; // Начинаем ниже
+                scrollAnimation.To = -25; // Заканчиваем выше (выходим за рамку)
+                scrollAnimation.Duration = TimeSpan.FromMilliseconds(1500);
+                scrollAnimation.EasingFunction = new CubicEase() { EasingMode = EasingMode.EaseInOut };
+
+                scrollAnimation.Completed += (s, e) =>
+                {
+                    // После анимации перемещаем первый ник в конец
+                    string firstNick = nicknames[0];
+                    nicknames.RemoveAt(0);
+                    nicknames.Add(firstNick);
+
+                    // Сбрасываем позицию
+                    nickListView.ItemsSource = null;
+                    nickListView.ItemsSource = nicknames;
+
+                    // Сбрасываем трансформацию
+                    nickListView.RenderTransform = null;
+                };
+
+                // Применяем анимацию
+                var transform = new TranslateTransform();
+                nickListView.RenderTransform = transform;
+                transform.BeginAnimation(TranslateTransform.YProperty, scrollAnimation);
+
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Nick scroll failed: {ex}");
+            }
         }
 
         private void InitializeImageGallery()
         {
-            // Инициализируем коллекцию изображений
-            galleryImages = new List<BitmapImage>();
-
-            // Добавляем изображения
             try
             {
-                // Получаем путь к папке с изображениями относительно корневой директории
-                string galleryPath = Path.Combine(rootPath, "GGS", "gallery");
+                Debug.WriteLine("=== Initializing Image Gallery ===");
+                Debug.WriteLine($"Root path: {rootPath}");
 
-                // Проверяем существование папки
+                galleryImagePaths = new List<string>();
+                string galleryPath = Path.Combine(rootPath, "GGS", "gallery");
+                Debug.WriteLine($"Gallery path: {galleryPath}");
+                Debug.WriteLine($"Directory exists: {Directory.Exists(galleryPath)}");
+
                 if (Directory.Exists(galleryPath))
                 {
-                    Debug.WriteLine($"Gallery directory found: {galleryPath}");
+                    string[] allFiles = Directory.GetFiles(galleryPath, "*.*", SearchOption.TopDirectoryOnly);
+                    Debug.WriteLine($"Total files in gallery: {allFiles.Length}");
 
-                    // Получаем все файлы изображений
-                    string[] imageExtensions = { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" };
-                    List<string> imageFiles = new List<string>();
-
-                    foreach (string extension in imageExtensions)
+                    foreach (string file in allFiles)
                     {
-                        try
+                        string extension = Path.GetExtension(file).ToLower();
+                        if (extension == ".jpg" || extension == ".jpeg" || extension == ".png" ||
+                            extension == ".bmp" || extension == ".gif")
                         {
-                            var files = Directory.GetFiles(galleryPath, extension, SearchOption.TopDirectoryOnly);
-                            imageFiles.AddRange(files);
-                            Debug.WriteLine($"Found {files.Length} files with extension {extension}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error searching for {extension} files: {ex.Message}");
-                        }
-                    }
-
-                    Debug.WriteLine($"Total image files found: {imageFiles.Count}");
-
-                    // Загружаем изображения
-                    foreach (string imageFile in imageFiles)
-                    {
-                        try
-                        {
-                            BitmapImage bitmap = new BitmapImage();
-                            bitmap.BeginInit();
-                            bitmap.UriSource = new Uri(imageFile, UriKind.Absolute);
-                            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                            bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-                            bitmap.EndInit();
-
-                            // Проверяем, что изображение загружено корректно
-                            if (bitmap.Width > 0 && bitmap.Height > 0)
-                            {
-                                galleryImages.Add(bitmap);
-                                Debug.WriteLine($"Successfully loaded: {Path.GetFileName(imageFile)}");
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"Invalid image dimensions: {Path.GetFileName(imageFile)}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Failed to load {imageFile}: {ex.Message}");
+                            galleryImagePaths.Add(file);
+                            Debug.WriteLine($"Found image: {Path.GetFileName(file)}");
                         }
                     }
                 }
                 else
                 {
-                    Debug.WriteLine($"Gallery directory not found: {galleryPath}");
-                    // Создаем папку для будущего использования
-                    try
-                    {
-                        Directory.CreateDirectory(galleryPath);
-                        Debug.WriteLine($"Created gallery directory: {galleryPath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Failed to create gallery directory: {ex.Message}");
-                    }
+                    Debug.WriteLine("Gallery directory does not exist");
                 }
 
-                // Если файлы не найдены или не загрузились, создаем тестовые изображения
-                if (galleryImages.Count == 0)
+                Debug.WriteLine($"Total images found: {galleryImagePaths.Count}");
+
+                if (galleryImagePaths.Count == 0)
                 {
-                    Debug.WriteLine("No valid images found, creating sample images");
+                    Debug.WriteLine("Creating sample images...");
                     CreateSampleImages();
                 }
-                else
+
+                CreateGalleryContainer();
+
+                if (galleryImagePaths.Count > 0)
                 {
-                    Debug.WriteLine($"Loaded {galleryImages.Count} images for gallery");
+                    LoadCurrentImage();
                 }
+
+                if (galleryImagePaths.Count > 1)
+                {
+                    StartImageSlideShow();
+                }
+
+                Debug.WriteLine("=== Gallery initialization complete ===");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Gallery initialization error: {ex.Message}");
-                CreateSampleImages();
-            }
-
-            // Создаем контейнер для галереи
-            CreateGalleryContainer();
-
-            // Запускаем таймер смены изображений если есть что показывать
-            if (galleryImages.Count > 1)
-            {
-                StartImageSlideShow();
-            }
-            else if (galleryImages.Count == 1)
-            {
-                // Если только одно изображение, просто показываем его
-                if (currentImage != null)
-                {
-                    currentImage.Source = galleryImages[0];
-                }
+                Debug.WriteLine($"Gallery initialization failed: {ex}");
             }
         }
 
         private void CreateSampleImages()
         {
-            // Создаем программные изображения для демонстрации
-            galleryImages.Clear();
-
-            // Создаем несколько цветных изображений программно
-            for (int i = 0; i < 4; i++)
+            try
             {
-                DrawingVisual drawingVisual = new DrawingVisual();
-                using (DrawingContext drawingContext = drawingVisual.RenderOpen())
+                Debug.WriteLine("Creating sample images directory...");
+
+                string samplePath = Path.Combine(rootPath, "GGS", "gallery");
+                if (!Directory.Exists(samplePath))
+                {
+                    Directory.CreateDirectory(samplePath);
+                }
+
+                for (int i = 1; i <= 4; i++)
+                {
+                    string imagePath = Path.Combine(samplePath, $"sample{i}.png");
+                    CreateSampleImage(imagePath, i);
+                    galleryImagePaths.Add(imagePath);
+                    Debug.WriteLine($"Created sample image: {imagePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to create sample images: {ex}");
+            }
+        }
+
+        private void CreateSampleImage(string filePath, int index)
+        {
+            try
+            {
+                var visual = new DrawingVisual();
+                using (var context = visual.RenderOpen())
                 {
                     Color[] colors = {
-                        Color.FromArgb(0xFF, 0x1E, 0x3A, 0x8A), // Темно-синий
-                        Color.FromArgb(0xFF, 0x16, 0x65, 0x39), // Темно-зеленый
-                        Color.FromArgb(0xFF, 0x99, 0x1B, 0x1B), // Темно-красный
-                        Color.FromArgb(0xFF, 0x7E, 0x22, 0xCE)  // Фиолетовый
+                        Color.FromRgb(30, 58, 138),
+                        Color.FromRgb(22, 101, 57),
+                        Color.FromRgb(153, 27, 27),
+                        Color.FromRgb(126, 34, 206)
                     };
-                    string[] texts = {
-                        "Здесь может быть\nваша реклама!",
-                        "Здесь может быть\nваша реклама!",
-                        "Здесь может быть\nваша реклама!",
-                        "Здесь может быть\nваша реклама!" };
 
-                    // Фон
-                    drawingContext.DrawRectangle(new SolidColorBrush(colors[i]), null, new Rect(0, 0, 300, 200));
+                    context.DrawRectangle(new SolidColorBrush(colors[index - 1]), null, new Rect(0, 0, 300, 200));
 
-                    // Градиент для красоты
-                    var gradient = new LinearGradientBrush(
-                        Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF),
-                        Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF),
-                        45);
-                    drawingContext.DrawRectangle(gradient, null, new Rect(0, 0, 300, 200));
+                    var text = new FormattedText(
+                        $"Sample {index}",
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        System.Windows.FlowDirection.LeftToRight,
+                        new Typeface("Arial"),
+                        24,
+                        Brushes.White,
+                        1.0);
 
-                    // Текст
-                    drawingContext.DrawText(
-                        new FormattedText(texts[i],
-                            System.Globalization.CultureInfo.CurrentCulture,
-                            FlowDirection.LeftToRight,
-                            new Typeface("Arial"),
-                            18,
-                            Brushes.White,
-                            1.0),
-                        new Point(20, 80));
+                    context.DrawText(text, new Point(50, 80));
                 }
 
-                RenderTargetBitmap bmp = new RenderTargetBitmap(300, 200, 96, 96, PixelFormats.Pbgra32);
-                bmp.Render(drawingVisual);
+                var bitmap = new RenderTargetBitmap(300, 200, 96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(visual);
 
-                // Конвертируем в BitmapImage
-                BitmapImage bitmapImage = new BitmapImage();
-                PngBitmapEncoder encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(bmp));
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmap));
 
-                using (MemoryStream stream = new MemoryStream())
+                using (var stream = File.Create(filePath))
                 {
                     encoder.Save(stream);
-                    stream.Seek(0, SeekOrigin.Begin);
-
-                    bitmapImage.BeginInit();
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmapImage.StreamSource = stream;
-                    bitmapImage.EndInit();
                 }
-
-                galleryImages.Add(bitmapImage);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to create sample image {filePath}: {ex}");
             }
         }
 
         private void CreateGalleryContainer()
         {
-            // Создаем контейнер для галереи в правом верхнем углу
-            var galleryGrid = new Grid();
-            galleryGrid.Width = 280;
-            galleryGrid.Height = 180;
-            galleryGrid.HorizontalAlignment = HorizontalAlignment.Center;
-            galleryGrid.VerticalAlignment = VerticalAlignment.Center;
-            galleryGrid.ClipToBounds = true;
-
-            // Добавляем бордер для красивого отображения
-            galleryBorder = new Border();
-            galleryBorder.Width = 300;
-            galleryBorder.Height = 200;
-            galleryBorder.Margin = new Thickness(0, 15, 15, 0);
-            galleryBorder.HorizontalAlignment = HorizontalAlignment.Right;
-            galleryBorder.VerticalAlignment = VerticalAlignment.Top;
-            galleryBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x88, 0x88, 0x88));
-            galleryBorder.BorderThickness = new Thickness(2);
-            galleryBorder.CornerRadius = new CornerRadius(10);
-            galleryBorder.Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x00, 0x00, 0x00));
-
-            // Добавляем тень если доступно
             try
             {
-                galleryBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect()
+                Debug.WriteLine("Creating gallery container...");
+
+                var galleryGrid = new Grid();
+                galleryGrid.Width = 280;
+                galleryGrid.Height = 180;
+                galleryGrid.HorizontalAlignment = HorizontalAlignment.Center;
+                galleryGrid.VerticalAlignment = VerticalAlignment.Center;
+                galleryGrid.ClipToBounds = true;
+
+                currentImage = new Image();
+                currentImage.Stretch = Stretch.UniformToFill;
+                currentImage.HorizontalAlignment = HorizontalAlignment.Center;
+                currentImage.VerticalAlignment = VerticalAlignment.Center;
+
+                nextImage = new Image();
+                nextImage.Stretch = Stretch.UniformToFill;
+                nextImage.HorizontalAlignment = HorizontalAlignment.Center;
+                nextImage.VerticalAlignment = VerticalAlignment.Center;
+                nextImage.Opacity = 0;
+
+                galleryGrid.Children.Add(currentImage);
+                galleryGrid.Children.Add(nextImage);
+
+                // Создаем бордер для галереи с ПРЯМЫМИ углами
+                galleryBorder = new Border();
+                galleryBorder.Width = 300;
+                galleryBorder.Height = 200;
+                galleryBorder.Margin = new Thickness(0, 15, 15, 0);
+                galleryBorder.HorizontalAlignment = HorizontalAlignment.Right;
+                galleryBorder.VerticalAlignment = VerticalAlignment.Top;
+                galleryBorder.BorderBrush = new SolidColorBrush(Colors.Gray);
+                galleryBorder.BorderThickness = new Thickness(2);
+                galleryBorder.CornerRadius = new CornerRadius(0); // ПРЯМЫЕ углы
+                galleryBorder.Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x00, 0x00, 0x00));
+                galleryBorder.Child = galleryGrid;
+
+                try
                 {
-                    Color = Colors.Black,
-                    Direction = 320,
-                    ShadowDepth = 10,
-                    Opacity = 0.6,
-                    BlurRadius = 10
-                };
+                    galleryBorder.Effect = new System.Windows.Media.Effects.DropShadowEffect()
+                    {
+                        Color = Colors.Black,
+                        Direction = 320,
+                        ShadowDepth = 10,
+                        Opacity = 0.6,
+                        BlurRadius = 10
+                    };
+                }
+                catch
+                {
+                    // Если тень не доступна, продолжаем без нее
+                }
+
+                var mainGrid = Content as Grid;
+                if (mainGrid != null)
+                {
+                    mainGrid.Children.Add(galleryBorder);
+                    Panel.SetZIndex(galleryBorder, 2);
+                }
+
+                Debug.WriteLine("Gallery container created successfully");
             }
-            catch
+            catch (Exception ex)
             {
-                // Если тень не доступна, продолжаем без нее
+                Debug.WriteLine($"Failed to create gallery container: {ex}");
             }
+        }
 
-            // Создаем изображения для анимации
-            currentImage = new Image();
-            currentImage.Stretch = Stretch.UniformToFill;
-            currentImage.HorizontalAlignment = HorizontalAlignment.Center;
-            currentImage.VerticalAlignment = VerticalAlignment.Center;
+        private void LoadCurrentImage()
+        {
+            if (galleryImagePaths.Count == 0 || currentImage == null) return;
 
-            nextImage = new Image();
-            nextImage.Stretch = Stretch.UniformToFill;
-            nextImage.HorizontalAlignment = HorizontalAlignment.Center;
-            nextImage.VerticalAlignment = VerticalAlignment.Center;
-            nextImage.Opacity = 0;
-
-            if (galleryImages.Count > 0)
+            try
             {
-                currentImage.Source = galleryImages[0];
+                string imagePath = galleryImagePaths[currentImageIndex];
+                Debug.WriteLine($"Loading image: {imagePath}");
+
+                BitmapImage bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(imagePath);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                bitmap.EndInit();
+
+                currentImage.Source = bitmap;
+                Debug.WriteLine("Image loaded successfully");
             }
-
-            // Добавляем элементы в контейнер
-            galleryGrid.Children.Add(currentImage);
-            galleryGrid.Children.Add(nextImage);
-            galleryBorder.Child = galleryGrid;
-
-            // Добавляем в главный Grid
-            var mainGrid = Content as Grid;
-            if (mainGrid != null)
+            catch (Exception ex)
             {
-                mainGrid.Children.Add(galleryBorder);
-                Panel.SetZIndex(galleryBorder, 1);
+                Debug.WriteLine($"Failed to load image: {ex}");
             }
         }
 
         private void StartImageSlideShow()
         {
-            if (galleryImages.Count <= 1) return;
+            if (galleryImagePaths.Count <= 1) return;
 
             imageSlideTimer = new DispatcherTimer();
             imageSlideTimer.Interval = TimeSpan.FromSeconds(5);
             imageSlideTimer.Tick += ImageSlideTimer_Tick;
             imageSlideTimer.Start();
+
+            Debug.WriteLine("Slide show started");
         }
 
         private void ImageSlideTimer_Tick(object sender, EventArgs e)
         {
-            ShowNextImageWithAnimation();
+            ShowNextImage();
         }
 
-        private void ShowNextImageWithAnimation()
+        private void ShowNextImage()
         {
-            if (galleryImages.Count <= 1) return;
+            if (galleryImagePaths.Count <= 1) return;
 
-            // Вычисляем индекс следующего изображения
-            currentImageIndex = (currentImageIndex + 1) % galleryImages.Count;
-
-            // Устанавливаем следующее изображение
-            nextImage.Source = galleryImages[currentImageIndex];
-
-            // Создаем анимацию перехода
-            DoubleAnimation fadeOutAnimation = new DoubleAnimation(1, 0, TimeSpan.FromSeconds(1));
-            DoubleAnimation fadeInAnimation = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(1));
-
-            fadeOutAnimation.Completed += (s, e) =>
+            try
             {
-                // После завершения анимации меняем изображения местами
-                currentImage.Source = nextImage.Source;
-                currentImage.Opacity = 1;
-                nextImage.Opacity = 0;
-            };
+                currentImageIndex = (currentImageIndex + 1) % galleryImagePaths.Count;
 
-            currentImage.BeginAnimation(Image.OpacityProperty, fadeOutAnimation);
-            nextImage.BeginAnimation(Image.OpacityProperty, fadeInAnimation);
+                string nextImagePath = galleryImagePaths[currentImageIndex];
+                BitmapImage bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(nextImagePath);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+                bitmap.EndInit();
+
+                nextImage.Source = bitmap;
+
+                DoubleAnimation fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromSeconds(1));
+                DoubleAnimation fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(1));
+
+                fadeOut.Completed += (s, e) =>
+                {
+                    currentImage.Source = nextImage.Source;
+                    currentImage.Opacity = 1;
+                    nextImage.Opacity = 0;
+                };
+
+                currentImage.BeginAnimation(Image.OpacityProperty, fadeOut);
+                nextImage.BeginAnimation(Image.OpacityProperty, fadeIn);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to show next image: {ex}");
+            }
         }
 
         private async Task CheckForUpdateAsync()
         {
             try
             {
-                // Имитируем задержку сети для реалистичности
                 await Task.Delay(1000);
 
                 if (File.Exists(versionFile))
                 {
                     GameVersion localVersion = new GameVersion(File.ReadAllText(versionFile));
-
                     Dispatcher.Invoke(() => VersionText.Text = localVersion.ToString());
 
-                    // ВРЕМЕННО: Имитируем проверку обновлений без реального сервера
                     GameVersion onlineVersion = new GameVersion("1.0.1");
 
                     if (onlineVersion.IsDifferentThan(localVersion))
                     {
                         var result = await ShowQuestionMessageAsync($"Available update: {onlineVersion}\nCurrent version: {localVersion}\n\nDo you want to download the update?");
-
                         if (result == MessageBoxResult.Yes)
                         {
                             await InstallGameFilesAsync(true, onlineVersion);
@@ -475,9 +939,7 @@ namespace RCrtnik
                 {
                     File.WriteAllText(versionFile, "1.0.0");
                     Dispatcher.Invoke(() => VersionText.Text = "1.0.0");
-
                     await CreateTestGameFilesAsync();
-
                     Status = LauncherStatus.ready;
                     await ShowInfoMessageAsync("Game ready for first launch!");
                 }
@@ -494,30 +956,16 @@ namespace RCrtnik
         {
             try
             {
-                if (isUpdate)
-                {
-                    Status = LauncherStatus.downloadingUpdate;
-                }
-                else
-                {
-                    Status = LauncherStatus.downloadingGame;
-                }
+                Status = isUpdate ? LauncherStatus.downloadingUpdate : LauncherStatus.downloadingGame;
 
                 for (int progress = 0; progress <= 100; progress += 10)
                 {
-                    if (cancellationTokenSource.Token.IsCancellationRequested)
-                        return;
-
+                    if (cancellationTokenSource.Token.IsCancellationRequested) return;
                     await Task.Delay(200);
-
-                    Dispatcher.Invoke(() =>
-                    {
-                        PlayButton.Content = $"Downloading... {progress}%";
-                    });
+                    Dispatcher.Invoke(() => PlayButton.Content = $"Downloading... {progress}%");
                 }
 
                 await CreateTestGameFilesAsync();
-
                 File.WriteAllText(versionFile, onlineVersion.ToString());
 
                 Dispatcher.Invoke(() =>
@@ -620,10 +1068,6 @@ pause >nul
             {
                 await CheckForUpdateAsync();
             }
-            else if (Status == LauncherStatus.defalt)
-            {
-                // Если еще проверяет обновления - ничего не делаем
-            }
             else
             {
                 await ShowErrorMessageAsync("Game files not found. Please check for updates or reinstall.");
@@ -633,17 +1077,9 @@ pause >nul
         private async void Button_02_Click(object sender, RoutedEventArgs e)
         {
             string url = "https://github.com";
-
             try
             {
-                await Task.Run(() =>
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = url,
-                        UseShellExecute = true
-                    });
-                });
+                await Task.Run(() => Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }));
             }
             catch (Exception ex)
             {
@@ -655,7 +1091,6 @@ pause >nul
         {
             Button_03.IsEnabled = false;
             Button_03.Content = "Checking...";
-
             try
             {
                 await CheckForUpdateAsync();
@@ -670,6 +1105,8 @@ pause >nul
         {
             cancellationTokenSource?.Cancel();
             imageSlideTimer?.Stop();
+            nickScrollTimer?.Stop();
+            statsTimer?.Stop();
             base.OnClosing(e);
         }
 
