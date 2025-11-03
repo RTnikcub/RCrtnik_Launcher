@@ -7,10 +7,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RCrtnik", "RCrtnik\RCrtnik.
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debag2|Any CPU = Debag2|Any CPU
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0ECD3EAB-1AEC-4E8D-B3C1-B181CD649209}.Debag2|Any CPU.ActiveCfg = Debag2|Any CPU
+		{0ECD3EAB-1AEC-4E8D-B3C1-B181CD649209}.Debag2|Any CPU.Build.0 = Debag2|Any CPU
 		{0ECD3EAB-1AEC-4E8D-B3C1-B181CD649209}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0ECD3EAB-1AEC-4E8D-B3C1-B181CD649209}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0ECD3EAB-1AEC-4E8D-B3C1-B181CD649209}.Release|Any CPU.ActiveCfg = Release|Any CPU

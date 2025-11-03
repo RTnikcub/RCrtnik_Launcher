@@ -6,7 +6,8 @@
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
         Title="RC Launcher" Height="700" Width="1200"
-        Background="Black">
+        Background="Black"
+        ResizeMode="NoResize">
 
     <Grid>
         <!-- Фоновое изображение -->

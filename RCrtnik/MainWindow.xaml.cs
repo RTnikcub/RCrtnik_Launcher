@@ -150,7 +150,7 @@ namespace RCrtnik
                 await CheckForUpdateAsync();
 
                 // Скрываем окно загрузки
-                await Task.Delay(1500);
+                await Task.Delay(600);
                 HideLoadingWindow();
             }
             catch (Exception ex)
@@ -664,4 +664,3 @@ pause >nul
         }
     }
 }
-
