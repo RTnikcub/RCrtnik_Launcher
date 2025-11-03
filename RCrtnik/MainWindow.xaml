@@ -3,16 +3,105 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:RCrtnik"
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
-        ContentRendered="Window_ContentRendered"
-        Title="RC Launcher" Height="700" Width="1200">
+        Title="RC Launcher" Height="700" Width="1200"
+        Background="Black">
+
     <Grid>
+        <!-- Фоновое изображение -->
         <Image Stretch="UniformToFill" Source="GGS/RC.png"/>
-        <TextBlock Name="VersionText" VerticalAlignment="Bottom" HorizontalAlignment="Right" FontSize="20" Foreground="White" Margin="0,0,101,195" Height="40" Width="168" TextAlignment="Center"/>
-        <Button Name="PlayButton" Content="Checking For Updates" Click="PlayButton_Click" FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,10" Background="#FF069207" Padding="10,1,10,5" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="55" VerticalAlignment="Bottom" MinWidth="1"/>
-        <Button Name="Button_02" Content="Help" Click="Button_02_Click" FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,70" Background="#FF922306" Padding="10,1,10,5" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="45" VerticalAlignment="Bottom" MinWidth="1"/>
-        <Button Name="Button_03" Content="Проверить обновление" Click="Button_03_Click" FontSize="20" FontWeight="Bold" Foreground="#DDFFFFFF" Margin="0,0,20,120" Background="#FF922306" Padding="10,1,10,5" Panel.ZIndex="1" BorderThickness="2,1,2,2" HorizontalAlignment="Right" Width="332" Height="45" VerticalAlignment="Bottom" MinWidth="1"/>
+
+        <!-- Левая панель со статистикой -->
+        <Border x:Name="LeftBorder" Width="250" HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                BorderBrush="#FF888888" BorderThickness="2" Background="#AA0A0A0A"
+                Panel.ZIndex="0">
+            <StackPanel Margin="15" Orientation="Vertical" VerticalAlignment="Top">
+                <!-- Статус интернета с кнопкой проверки -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                        <TextBlock Text="Internet Status:" Foreground="LightGray" FontSize="12" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="InternetStatusText" Foreground="White" FontSize="14" FontWeight="SemiBold" Text="CHECKING..."/>
+                    </StackPanel>
+                    <Button x:Name="RefreshInternetBtn" Content="⟳" Click="RefreshInternetBtn_Click"
+                            Width="30" Height="30" Margin="10,0,0,0" 
+                            Background="Transparent" BorderBrush="Gray" BorderThickness="1"
+                            Foreground="White" FontSize="12" FontWeight="Bold"
+                            ToolTip="Check internet connection"/>
+                </StackPanel>
+
+                <!-- ID ПК -->
+                <StackPanel Orientation="Vertical" Margin="0,0,0,15">
+                    <TextBlock Text="PC Identifier:" Foreground="LightGray" FontSize="12" Margin="0,0,0,5"/>
+                    <TextBlock x:Name="PcIdText" Foreground="White" FontSize="14" FontWeight="SemiBold" Text="LOADING..."/>
+                </StackPanel>
+
+                <!-- Загрузка ЦП -->
+                <StackPanel Orientation="Vertical" Margin="0,0,0,15">
+                    <TextBlock Text="CPU Usage:" Foreground="LightGray" FontSize="12" Margin="0,0,0,5"/>
+                    <TextBlock x:Name="CpuUsageText" Foreground="White" FontSize="14" FontWeight="SemiBold" Text="0%"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Панель галереи -->
+        <Border x:Name="GalleryBorder" Width="300" Height="200" 
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,15,15,0"
+                BorderBrush="Gray" BorderThickness="2" Background="#CC000000"
+                Panel.ZIndex="2">
+            <Grid x:Name="GalleryGrid" Width="280" Height="180" 
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  ClipToBounds="True">
+                <Image x:Name="CurrentImage" Stretch="UniformToFill"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Image x:Name="NextImage" Stretch="UniformToFill" Opacity="0"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Кнопки управления -->
+        <Button x:Name="PlayButton" Content="Checking For Updates" Click="PlayButton_Click" 
+                FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" 
+                Margin="0,0,20,10" Background="#FF069207" Padding="10,1,10,5" 
+                Panel.ZIndex="1" BorderThickness="2,1,2,2" 
+                HorizontalAlignment="Right" Width="332" Height="55" 
+                VerticalAlignment="Bottom" MinWidth="1"/>
+
+        <Button x:Name="Button_02" Content="Help" Click="Button_02_Click" 
+                FontSize="30" FontWeight="Bold" Foreground="#DDFFFFFF" 
+                Margin="0,0,20,70" Background="#FF922306" Padding="10,1,10,5" 
+                Panel.ZIndex="1" BorderThickness="2,1,2,2" 
+                HorizontalAlignment="Right" Width="332" Height="45" 
+                VerticalAlignment="Bottom" MinWidth="1"/>
+
+        <Button x:Name="Button_03" Content="Проверить обновление" Click="Button_03_Click" 
+                FontSize="20" FontWeight="Bold" Foreground="#DDFFFFFF" 
+                Margin="0,0,20,120" Background="#FF922306" Padding="10,1,10,5" 
+                Panel.ZIndex="1" BorderThickness="2,1,2,2" 
+                HorizontalAlignment="Right" Width="332" Height="45" 
+                VerticalAlignment="Bottom" MinWidth="1"/>
+
+        <!-- Версия внизу слева -->
+        <TextBlock x:Name="VersionText" VerticalAlignment="Bottom" HorizontalAlignment="Left" 
+                   FontSize="20" Foreground="White" Margin="20,0,0,20" Height="40" 
+                   TextAlignment="Left" Text="1.0.0"/>
+
+        <!-- Окно загрузки -->
+        <Border x:Name="LoadingWindow" Background="#CC000000" Panel.ZIndex="10"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                Visibility="Visible">
+            <Border Background="#AA1A1A1A" BorderBrush="Gray" BorderThickness="2"
+                    Width="400" Height="150"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="Лаунчер загружается" 
+                               Foreground="White" FontSize="24" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                    <ProgressBar x:Name="LoadingProgress" Height="20" Width="300"
+                                 IsIndeterminate="True" Foreground="#FF069207"/>
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </Window>
