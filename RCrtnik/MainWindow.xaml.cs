@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Net.Http;
 
 namespace RCrtnik
 {
@@ -202,25 +203,82 @@ namespace RCrtnik
         {
             try
             {
-                // Быстрая проверка через пинг
-                using var ping = new Ping();
-                var reply = ping.Send("8.8.8.8", 1500);
-                return reply?.Status == IPStatus.Success;
-            }
-            catch
-            {
-                // Если пинг не сработал, пробуем HTTP запрос
-                try
+                // Способ 1: Пинг Google DNS
+                using (var ping = new Ping())
                 {
-                    using var client = new WebClient();
-                    using var stream = client.OpenRead("http://www.google.com");
+                    var reply = ping.Send("8.8.8.8", 2000);
+                    if (reply != null && reply.Status == IPStatus.Success)
+                    {
+                        Debug.WriteLine("Internet check: Ping success");
+                        return true;
+                    }
+                }
+            }
+            catch (Exception pingEx)
+            {
+                Debug.WriteLine($"Ping failed: {pingEx.Message}");
+            }
+
+            try
+            {
+                // Способ 2: HTTP запрос к Google с таймаутом через WebRequest
+                var request = (HttpWebRequest)WebRequest.Create("http://www.google.com");
+                request.UserAgent = "Mozilla/5.0";
+                request.Timeout = 3000;
+                request.Method = "HEAD"; // Используем HEAD для быстрой проверки
+
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    Debug.WriteLine("Internet check: HTTP success");
                     return true;
                 }
-                catch
+            }
+            catch (WebException webEx)
+            {
+                // Если получили любой HTTP ответ - значит интернет есть
+                if (webEx.Response != null)
                 {
-                    return false;
+                    Debug.WriteLine("Internet check: HTTP response received");
+                    return true;
+                }
+                Debug.WriteLine($"HTTP check failed: {webEx.Message}");
+            }
+            catch (Exception httpEx)
+            {
+                Debug.WriteLine($"HTTP check failed: {httpEx.Message}");
+            }
+
+            try
+            {
+                // Способ 3: Проверка через generate_204
+                var request = (HttpWebRequest)WebRequest.Create("http://clients3.google.com/generate_204");
+                request.UserAgent = "Mozilla/5.0";
+                request.Timeout = 3000;
+                request.Method = "HEAD";
+
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    Debug.WriteLine("Internet check: Google generate_204 success");
+                    return true;
                 }
             }
+            catch (WebException webEx)
+            {
+                // generate_204 возвращает 204 статус, который считается успехом
+                if (webEx.Response != null)
+                {
+                    Debug.WriteLine("Internet check: Google 204 response received");
+                    return true;
+                }
+                Debug.WriteLine($"Google check failed: {webEx.Message}");
+            }
+            catch (Exception googleEx)
+            {
+                Debug.WriteLine($"Google check failed: {googleEx.Message}");
+            }
+
+            Debug.WriteLine("Internet check: All methods failed - OFFLINE");
+            return false;
         }
 
         private string GetPCIdentifier()
@@ -601,3 +659,4 @@ pause >nul
         }
     }
 }
+
