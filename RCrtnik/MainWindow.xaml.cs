@@ -29,45 +29,50 @@ namespace RCrtnik
 
     struct GameVersion
     {
-        internal static GameVersion zero = new GameVersion(0, 0, 0);
+        internal static GameVersion zero = new GameVersion(0, 0, 0, 0);
 
         private short major;
         private short minor;
         private short subMinor;
+        private short dinor;
 
-        internal GameVersion(short _major, short _minor, short _subMinor)
+        internal GameVersion(short _major, short _minor, short _subMinor, short _dinor)
         {
             major = _major;
             minor = _minor;
             subMinor = _subMinor;
+            dinor = _dinor;
         }
 
         internal GameVersion(string _version)
         {
             string[] _versionStrings = _version.Split('.');
-            if (_versionStrings.Length != 3)
+            if (_versionStrings.Length != 4)
             {
                 major = 0;
                 minor = 0;
                 subMinor = 0;
+                dinor = 0;
                 return;
             }
 
             major = short.Parse(_versionStrings[0]);
             minor = short.Parse(_versionStrings[1]);
             subMinor = short.Parse(_versionStrings[2]);
+            dinor = short.Parse(_versionStrings[3]);
         }
 
         internal bool IsDifferentThan(GameVersion _otherVersion)
         {
             return major != _otherVersion.major ||
                    minor != _otherVersion.minor ||
-                   subMinor != _otherVersion.subMinor;
+                   subMinor != _otherVersion.subMinor ||
+                   dinor != _otherVersion.dinor;
         }
 
         public override string ToString()
         {
-            return $"{major}.{minor}.{subMinor}";
+            return $"{major}.{minor}.{subMinor}.{dinor}";
         }
     }
 
@@ -485,7 +490,7 @@ namespace RCrtnik
                     var localVersion = new GameVersion(File.ReadAllText(versionFile));
                     VersionText.Text = localVersion.ToString();
 
-                    var onlineVersion = new GameVersion("1.0.1");
+                    var onlineVersion = new GameVersion("0.0.0.1");
 
                     if (onlineVersion.IsDifferentThan(localVersion))
                     {
@@ -507,8 +512,8 @@ namespace RCrtnik
                 }
                 else
                 {
-                    File.WriteAllText(versionFile, "1.0.0");
-                    VersionText.Text = "1.0.0";
+                    File.WriteAllText(versionFile, "0.0.0.0");
+                    VersionText.Text = "0.0.0.0";
                     await CreateTestGameFilesAsync();
                     Status = LauncherStatus.ready;
                 }
