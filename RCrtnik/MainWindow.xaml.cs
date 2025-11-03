@@ -587,11 +587,12 @@ pause >nul
             {
                 try
                 {
-                    var startInfo = new ProcessStartInfo(Path.Combine(gameDirectory, "TEST.bat"))
+                    var startInfo = new ProcessStartInfo(Path.Combine(gameDirectory, @"KT/M.Client.exe"))//TEST.bat
                     {
                         WorkingDirectory = gameDirectory,
                         UseShellExecute = true
                     };
+                    Process.Start(startInfo);
                     Process.Start(startInfo);
                 }
                 catch (Exception ex)
@@ -664,3 +665,5 @@ pause >nul
         }
     }
 }
+
+
